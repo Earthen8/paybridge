@@ -42,31 +42,47 @@ paybridge/
 
 ## Cara Menjalankan Project
 
-### 1. Install Dependencies & Generate Prisma Client
+### Menggunakan `make` (Makefile)
+
+Jika kamu memiliki tool `make` terinstall (Git Bash, WSL, MinGW, atau Chocolatey):
+
 ```bash
-npm install
-npm run db:generate
+# 1. Menjalankan Docker PostgreSQL & inisialisasi schema + seed data
+make setup
+
+# Atau perintah spesifik Docker:
+make up       # Jalankan Docker container PostgreSQL di background
+make down     # Hentikan container
+make logs     # Lihat log container PostgreSQL
+make restart  # Restart container
+
+# 2. Jalankan Backend & Frontend (di terminal terpisah)
+make dev-backend   # Port 4000
+make dev-frontend  # Port 5173
 ```
 
-### 2. Jalankan Database PostgreSQL (Docker)
-Pastikan **Docker Desktop** sudah berjalan, lalu jalankan:
+---
+
+### Menggunakan `npm` Script (PowerShell / Windows CMD)
+
+Jika lingkungan Windows kamu belum memiliki binary `make`, kamu bisa langsung menggunakan skrip `npm`:
+
 ```bash
+# 1. Jalankan PostgreSQL dan lakukan setup database
 npm run db:up
 npm run db:push
 npm run db:seed
-```
+# Atau shortcut all-in-one:
+npm run db:setup
 
-### 3. Jalankan Backend & Frontend
-Buka dua terminal di root folder `paybridge`:
+# Perintah Docker lainnya:
+npm run db:logs
+npm run db:restart
+npm run db:down
 
-**Terminal 1 (Backend — Port 4000):**
-```bash
-npm run dev:backend
-```
-
-**Terminal 2 (Frontend — Port 5173):**
-```bash
-npm run dev:frontend
+# 2. Jalankan Backend & Frontend (di terminal terpisah)
+npm run dev:backend   # Port 4000
+npm run dev:frontend  # Port 5173
 ```
 
 Buka `http://localhost:5173` di browser.
