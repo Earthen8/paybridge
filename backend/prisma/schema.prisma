@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  EXPIRED
+  CANCELLED
+}
+
+enum GatewayTransactionStatus {
+  PENDING
+  SETTLEMENT
+  EXPIRE
+  CANCEL
+  DENY
+}
+
+enum VerificationMechanism {
+  WEBHOOK
+  POLLING
+  RECONCILIATION
+  MANUAL
+  SIMULATION
+  SYSTEM
+}
+
+enum SimulationScenario {
+  NORMAL
+  DELAYED_WEBHOOK
+  FAILED_WEBHOOK
+  DUPLICATE_WEBHOOK
+  MIXED_BATCH
+}
+
+model User {
+  id                  String     @id @default(uuid())
+  name                String
+  email               String     @unique
+  passwordHash        String
+  businessName        String
+  phone               String?
+  resetToken          String?
+  resetTokenExpiresAt DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  invoices            Invoice[]
+  auditLogs           AuditLog[]
+}
+
+model Invoice {
+  id            String               @id @default(uuid())
+  invoiceNumber String               @unique
+  publicToken   String               @unique
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientName    String
+  clientEmail   String
+  clientPhone   String?
+  title         String
+  description   String?
+  amountIdr     Int
+  btcAmount     Decimal              @db.Decimal(18, 8)
+  ethAmount     Decimal              @db.Decimal(18, 8)
+  btcRateIdr    Decimal              @db.Decimal(20, 2)
+  ethRateIdr    Decimal              @db.Decimal(20, 2)
+  rateLockedAt  DateTime             @default(now())
+  status        InvoiceStatus        @default(DRAFT)
+  dueDate       DateTime
+  paidAt        DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  transactions  PaymentTransaction[]
+  auditLogs     AuditLog[]
+
+  @@index([userId, status])
+  @@index([publicToken])
+}
+
+model PaymentTransaction {
+  id                     String                   @id @default(uuid())
+  invoiceId              String
+  invoice                Invoice                  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  orderId                String                   @unique
+  gatewayTransactionId   String?
+  gatewayName            String                   @default("MIDTRANS")
+  amountIdr              Int
+  qrisString             String
+  qrisUrl                String?
+  status                 GatewayTransactionStatus @default(PENDING)
+  simulatedGatewayStatus GatewayTransactionStatus @default(PENDING)
+  verifiedBy             VerificationMechanism?
+  verificationLatencyMs  Int?
+  expiresAt              DateTime
+  gatewaySettledAt       DateTime?
+  settledAt              DateTime?
+  rawGatewayResponse     Json?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  webhookEvents          WebhookEvent[]
+  auditLogs              AuditLog[]
+
+  @@index([invoiceId])
+  @@index([status])
+}
+
+model WebhookEvent {
+  id                   String              @id @default(uuid())
+  transactionId        String?
+  transaction          PaymentTransaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  orderId              String
+  gatewayTransactionId String?
+  idempotencyKey       String              @unique
+  transactionStatus    String
+  signatureKey         String
+  isSignatureValid     Boolean
+  isDuplicate          Boolean             @default(false)
+  scenario             SimulationScenario  @default(NORMAL)
+  processingTimeMs     Int
+  rawPayload           Json
+  createdAt            DateTime            @default(now())
+
+  @@index([orderId])
+  @@index([scenario])
+}
+
+model AuditLog {
+  id             String                @id @default(uuid())
+  invoiceId      String?
+  invoice        Invoice?              @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  transactionId  String?
+  transaction    PaymentTransaction?   @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  userId         String?
+  user           User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  mechanism      VerificationMechanism
+  action         String
+  previousStatus String?
+  newStatus      String?
+  latencyMs      Int?
+  isSuccess      Boolean               @default(true)
+  message        String
+  metadata       Json?
+  createdAt      DateTime              @default(now())
+
+  @@index([mechanism, createdAt])
+  @@index([invoiceId])
+}
+
+model SimulationRun {
+  id                      String             @id @default(uuid())
+  scenario                SimulationScenario
+  totalSamples            Int
+  webhookOnlyAccuracyPct  Decimal            @db.Decimal(5, 2)
+  hybridAccuracyPct       Decimal            @db.Decimal(5, 2)
+  webhookSuccessCount     Int
+  pollingRecoveredCount   Int
+  reconcileRecoveredCount Int
+  duplicateBlockedCount   Int
+  avgWebhookLatencyMs     Int
+  avgHybridLatencyMs      Int
+  details                 Json
+  createdAt               DateTime           @default(now())
+}
+
