@@ -219,7 +219,8 @@ export function PublicPaymentPage() {
                   <div className="py-3 flex flex-wrap justify-between gap-2">
                     <dt className="text-[var(--ink-muted)]">Ditagihkan kepada</dt>
                     <dd className="font-medium text-[var(--ink)] text-right">
-                      {invoice.clientName} ({invoice.clientEmail})
+                      {invoice.clientName}
+                      {invoice.clientEmail ? ` (${invoice.clientEmail})` : ''}
                     </dd>
                   </div>
                   <div className="py-3 flex flex-wrap justify-between gap-2">

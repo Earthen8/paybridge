@@ -59,7 +59,7 @@ export interface Invoice {
   publicToken: string;
   userId: string;
   clientName: string;
-  clientEmail: string;
+  clientEmail: string | null;
   clientPhone: string | null;
   title: string;
   description: string | null;

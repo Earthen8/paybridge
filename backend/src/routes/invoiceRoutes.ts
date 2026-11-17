@@ -24,19 +24,25 @@ const publicQrisLimiter = createRateLimiter({
 });
 
 const createInvoiceSchema = z.object({
-  clientName: z.string().min(2, 'Client name is required'),
-  clientEmail: z.string().email('Valid client email is required'),
+  clientName: z.string().min(2, 'Nama klien minimal 2 karakter'),
+  clientEmail: z
+    .string()
+    .trim()
+    .email('Format email klien tidak valid')
+    .optional()
+    .or(z.literal('')),
   clientPhone: z.string().optional(),
-  title: z.string().min(3, 'Invoice title is required'),
+  title: z.string().min(3, 'Judul pekerjaan minimal 3 karakter'),
   description: z.string().optional(),
-  amountIdr: z.coerce.number().int().min(1000, 'Minimum invoice amount is Rp 1.000'),
-  dueDate: z.string().min(1, 'Due date is required'),
+  amountIdr: z.coerce.number().int().min(1000, 'Nominal tagihan minimal Rp 1.000'),
+  dueDate: z.string().min(1, 'Tanggal jatuh tempo wajib diisi'),
   publishImmediately: z.boolean().optional(),
+  sendEmailCopy: z.boolean().optional(),
 });
 
 const updateInvoiceSchema = z.object({
   clientName: z.string().min(2).optional(),
-  clientEmail: z.string().email().optional(),
+  clientEmail: z.string().trim().email().optional().or(z.literal('')),
   clientPhone: z.string().optional(),
   title: z.string().min(3).optional(),
   description: z.string().optional(),
@@ -90,11 +96,11 @@ invoiceRouter.get('/', requireAuth, async (request: AuthenticatedRequest, respon
 invoiceRouter.post('/', requireAuth, async (request: AuthenticatedRequest, response, next) => {
   try {
     const validatedInput = createInvoiceSchema.parse(request.body);
-    const invoice = await createInvoice({
+    const result = await createInvoice({
       ...validatedInput,
       userId: request.user!.userId,
     });
-    response.status(201).json({ invoice });
+    response.status(201).json(result);
   } catch (error) {
     next(error);
   }

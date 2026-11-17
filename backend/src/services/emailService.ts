@@ -114,3 +114,90 @@ function fallbackToDevConsole(
     notice: `Resend berada pada mode sandbox (${reason}). Untuk pengujian lokal, gunakan kode OTP: ${input.otpCode}`,
   };
 }
+
+export interface SendInvoiceCopyInput {
+  toEmail: string;
+  clientName: string;
+  businessName: string;
+  invoiceNumber: string;
+  title: string;
+  amountIdr: number;
+  dueDate: Date;
+  publicUrl: string;
+}
+
+export async function sendInvoiceCopyEmail(input: SendInvoiceCopyInput): Promise<SendOtpEmailResult> {
+  const hasResendKey =
+    Boolean(env.RESEND_API_KEY) && !env.RESEND_API_KEY.includes('YOUR_RESEND_API_KEY');
+
+  const formattedAmount = `Rp ${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(input.amountIdr)}`;
+  const formattedDueDate = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(input.dueDate);
+
+  if (!hasResendKey) {
+    return {
+      isDeliveredByEmail: false,
+      deliveryChannel: 'DEV_CONSOLE_FALLBACK',
+      notice: `Salinan invoice untuk ${input.toEmail} tidak dikirim karena RESEND_API_KEY belum aktif.`,
+    };
+  }
+
+  const html = `
+    <div style="background-color:#F5F1E8;padding:32px 16px;font-family:system-ui,-apple-system,sans-serif;color:#14213D;">
+      <div style="max-width:520px;margin:0 auto;background-color:#FFFDF8;border:1px solid #D8D2C4;border-radius:6px;padding:28px;">
+        <p style="margin:0 0 8px 0;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#5C5A52;font-weight:600;">
+          ${input.businessName}
+        </p>
+        <h1 style="margin:0 0 12px 0;font-size:20px;color:#14213D;">Tagihan Invoice ${input.invoiceNumber}</h1>
+        <p style="margin:0 0 16px 0;font-size:14px;line-height:1.5;color:#5C5A52;">
+          Halo ${input.clientName}, berikut salinan tagihan untuk pekerjaan <strong>${input.title}</strong>.
+        </p>
+        <div style="padding:16px;background-color:#EFEAE0;border:1px solid #D8D2C4;border-radius:4px;margin-bottom:20px;">
+          <div style="font-size:12px;color:#5C5A52;">Total Tagihan</div>
+          <div style="font-size:24px;font-weight:700;color:#14213D;margin-top:4px;">${formattedAmount}</div>
+          <div style="font-size:12px;color:#5C5A52;margin-top:6px;">Jatuh Tempo: ${formattedDueDate}</div>
+        </div>
+        <a href="${input.publicUrl}" style="display:inline-block;padding:12px 20px;background-color:#C23B1E;color:#FFFDF8;text-decoration:none;border-radius:4px;font-weight:600;font-size:14px;">
+          Buka Halaman Pembayaran QRIS
+        </a>
+      </div>
+    </div>
+  `;
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.RESEND_FROM_EMAIL,
+        to: [input.toEmail],
+        subject: `Invoice ${input.invoiceNumber}: ${input.title} (${formattedAmount})`,
+        html,
+      }),
+    });
+
+    if (response.ok) {
+      return {
+        isDeliveredByEmail: true,
+        deliveryChannel: 'RESEND_EMAIL',
+        notice: `Salinan invoice berhasil dikirim ke ${input.toEmail}.`,
+      };
+    }
+
+    const errorBody = (await response.json().catch(() => ({}))) as { message?: string };
+    return {
+      isDeliveredByEmail: false,
+      deliveryChannel: 'DEV_CONSOLE_FALLBACK',
+      notice: `Invoice tersimpan, namun salinan email belum terkirim (${errorBody.message ?? `HTTP ${response.status}`}).`,
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Network error';
+    return {
+      isDeliveredByEmail: false,
+      deliveryChannel: 'DEV_CONSOLE_FALLBACK',
+      notice: `Invoice tersimpan, namun salinan email gagal dikirim (${reason}).`,
+    };
+  }
+}

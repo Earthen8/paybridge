@@ -1,20 +1,23 @@
 import { InvoiceStatus, VerificationMechanism } from '@prisma/client';
 import { prisma } from '../config/database.js';
+import { env } from '../config/env.js';
 import { AppError } from '../utils/appError.js';
 import { generateRandomHexToken } from '../utils/tokenUtils.js';
 import { convertIdrToCrypto } from './cryptoRateService.js';
+import { sendInvoiceCopyEmail } from './emailService.js';
 import { createDynamicQrisCharge } from './midtransService.js';
 
 export interface CreateInvoiceInput {
   userId: string;
   clientName: string;
-  clientEmail: string;
+  clientEmail?: string;
   clientPhone?: string;
   title: string;
   description?: string;
   amountIdr: number;
   dueDate: string;
   publishImmediately?: boolean;
+  sendEmailCopy?: boolean;
 }
 
 export interface UpdateInvoiceInput {
@@ -37,6 +40,7 @@ function generateInvoiceNumber(): string {
 export async function createInvoice(input: CreateInvoiceInput) {
   const cryptoConversion = await convertIdrToCrypto(input.amountIdr);
   const initialStatus = input.publishImmediately ? InvoiceStatus.PENDING : InvoiceStatus.DRAFT;
+  const normalizedEmail = input.clientEmail?.trim() || null;
 
   const createdInvoice = await prisma.invoice.create({
     data: {
@@ -44,7 +48,7 @@ export async function createInvoice(input: CreateInvoiceInput) {
       publicToken: generateRandomHexToken(12),
       userId: input.userId,
       clientName: input.clientName.trim(),
-      clientEmail: input.clientEmail.trim(),
+      clientEmail: normalizedEmail,
       clientPhone: input.clientPhone?.trim(),
       title: input.title.trim(),
       description: input.description?.trim(),
@@ -56,7 +60,10 @@ export async function createInvoice(input: CreateInvoiceInput) {
       status: initialStatus,
       dueDate: new Date(input.dueDate),
     },
-    include: { transactions: true },
+    include: {
+      transactions: true,
+      user: { select: { businessName: true } },
+    },
   });
 
   await prisma.auditLog.create({
@@ -70,7 +77,22 @@ export async function createInvoice(input: CreateInvoiceInput) {
     },
   });
 
-  return createdInvoice;
+  let emailNotification: { isDeliveredByEmail: boolean; notice: string } | null = null;
+  if (input.sendEmailCopy && normalizedEmail) {
+    const baseFrontendUrl = env.FRONTEND_URL.replace(/\/$/, '');
+    emailNotification = await sendInvoiceCopyEmail({
+      toEmail: normalizedEmail,
+      clientName: createdInvoice.clientName,
+      businessName: createdInvoice.user.businessName,
+      invoiceNumber: createdInvoice.invoiceNumber,
+      title: createdInvoice.title,
+      amountIdr: createdInvoice.amountIdr,
+      dueDate: createdInvoice.dueDate,
+      publicUrl: `${baseFrontendUrl}/pay/${createdInvoice.publicToken}`,
+    });
+  }
+
+  return { invoice: createdInvoice, emailNotification };
 }
 
 export async function listUserInvoices(userId: string, statusFilter?: InvoiceStatus) {
@@ -214,7 +236,7 @@ export async function generateDynamicQrisForInvoice(publicToken: string) {
     orderId,
     amountIdr: invoice.amountIdr,
     customerName: invoice.clientName,
-    customerEmail: invoice.clientEmail,
+    customerEmail: invoice.clientEmail ?? invoice.user.email,
     invoiceTitle: invoice.title,
   });
 

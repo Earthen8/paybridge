@@ -24,6 +24,7 @@ export function InvoicesPage() {
   const [pendingAction, setPendingAction] = useState<PendingConfirmAction | null>(null);
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
+  const [sendEmailCopy, setSendEmailCopy] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [amountIdr, setAmountIdr] = useState(450_000);
@@ -33,6 +34,7 @@ export function InvoicesPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   async function loadInvoicesAndRates() {
     setIsLoading(true);
@@ -60,24 +62,33 @@ export function InvoicesPage() {
     event.preventDefault();
     setIsSubmitting(true);
     setActionError(null);
+    setActionNotice(null);
     try {
-      await apiRequest('/invoices', {
+      const result = await apiRequest<{
+        invoice: Invoice;
+        emailNotification?: { isDeliveredByEmail: boolean; notice: string } | null;
+      }>('/invoices', {
         method: 'POST',
         body: JSON.stringify({
           clientName,
-          clientEmail,
+          clientEmail: clientEmail.trim(),
           title,
           description,
           amountIdr,
           dueDate,
           publishImmediately: true,
+          sendEmailCopy: Boolean(clientEmail.trim()) && sendEmailCopy,
         }),
       });
       setIsCreating(false);
       setClientName('');
       setClientEmail('');
+      setSendEmailCopy(false);
       setTitle('');
       setDescription('');
+      if (result.emailNotification?.notice) {
+        setActionNotice(result.emailNotification.notice);
+      }
       await loadInvoicesAndRates();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Gagal membuat invoice.');
@@ -153,6 +164,15 @@ export function InvoicesPage() {
         </div>
       )}
 
+      {actionNotice && (
+        <div
+          role="status"
+          className="p-4 rounded-[4px] border border-[var(--paid)] bg-[var(--paid-bg)] text-sm text-[var(--paid)]"
+        >
+          {actionNotice}
+        </div>
+      )}
+
       {isCreating && (
         <form onSubmit={handleCreateInvoice} className="paper-card p-6 space-y-5">
           <h2 className="font-display text-lg font-semibold text-[var(--ink)] border-b border-[var(--line)] pb-3">
@@ -182,17 +202,34 @@ export function InvoicesPage() {
                 htmlFor="invoice-client-email"
                 className="block text-xs font-semibold text-[var(--ink)] mb-1.5"
               >
-                Email Klien
+                Email Klien (Opsional)
               </label>
               <input
                 id="invoice-client-email"
                 type="email"
-                required
                 value={clientEmail}
-                onChange={(event) => setClientEmail(event.target.value)}
-                placeholder="email@klien.com"
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setClientEmail(nextValue);
+                  setSendEmailCopy(Boolean(nextValue.trim()));
+                }}
+                placeholder="Kosongkan jika dikirim via WhatsApp"
                 className="w-full min-h-11 px-3.5 py-2 rounded-[4px] bg-[var(--surface)] border border-[var(--line-strong)] text-base text-[var(--ink)]"
               />
+              <label
+                htmlFor="invoice-send-email-copy"
+                className="mt-2 inline-flex items-center gap-2 text-xs text-[var(--ink-muted)]"
+              >
+                <input
+                  id="invoice-send-email-copy"
+                  type="checkbox"
+                  disabled={!clientEmail.trim()}
+                  checked={Boolean(clientEmail.trim()) && sendEmailCopy}
+                  onChange={(event) => setSendEmailCopy(event.target.checked)}
+                  className="w-4 h-4 accent-[var(--stamp)]"
+                />
+                <span>Kirim salinan invoice dan link QRIS ke email klien</span>
+              </label>
             </div>
 
             <div>
