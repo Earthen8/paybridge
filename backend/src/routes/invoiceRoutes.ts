@@ -1,7 +1,9 @@
 import { InvoiceStatus } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
+import { isSimulationModeActive } from '../config/env.js';
 import { AuthenticatedRequest, requireAuth } from '../middleware/authMiddleware.js';
+import { createRateLimiter } from '../middleware/rateLimitMiddleware.js';
 import { getDashboardSummary } from '../services/dashboardService.js';
 import {
   createInvoice,
@@ -14,6 +16,12 @@ import {
 } from '../services/invoiceService.js';
 
 export const invoiceRouter = Router();
+
+const publicQrisLimiter = createRateLimiter({
+  windowMs: 60_000,
+  maxRequests: 15,
+  message: 'Terlalu banyak permintaan pembuatan QRIS untuk tautan ini.',
+});
 
 const createInvoiceSchema = z.object({
   clientName: z.string().min(2, 'Client name is required'),
@@ -49,15 +57,15 @@ invoiceRouter.get('/dashboard-summary', requireAuth, async (request: Authenticat
 invoiceRouter.get('/public/:publicToken', async (request, response, next) => {
   try {
     const invoice = await getInvoiceByPublicToken(request.params.publicToken);
-    response.json({ invoice });
+    response.json({ invoice, isSimulationEnabled: isSimulationModeActive() });
   } catch (error) {
     next(error);
   }
 });
 
-invoiceRouter.post('/public/:publicToken/qris', async (request, response, next) => {
+invoiceRouter.post('/public/:publicToken/qris', publicQrisLimiter, async (request, response, next) => {
   try {
-    const transaction = await generateDynamicQrisForInvoice(request.params.publicToken);
+    const transaction = await generateDynamicQrisForInvoice(String(request.params.publicToken));
     response.status(201).json({ transaction });
   } catch (error) {
     next(error);

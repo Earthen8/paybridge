@@ -1,11 +1,17 @@
-import { Copy, ExternalLink, Plus, Trash2 } from 'lucide-react';
+import { Ban, Copy, ExternalLink, Plus, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ConfirmDialog } from '../components/ConfirmDialog.js';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/DataStates.js';
 import { InvoiceStatusBadge, MechanismBadge } from '../components/StatusBadge.js';
 import { apiRequest } from '../services/apiClient.js';
 import { CryptoMarketRates, Invoice, InvoiceStatus } from '../types/paybridge.js';
 import { formatCrypto, formatDateOnly, formatIdr } from '../utils/formatters.js';
+
+interface PendingConfirmAction {
+  type: 'DELETE' | 'CANCEL';
+  invoice: Invoice;
+}
 
 export function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -14,11 +20,13 @@ export function InvoicesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingConfirm, setIsProcessingConfirm] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingConfirmAction | null>(null);
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [amountIdr, setAmountIdr] = useState(500_000);
+  const [amountIdr, setAmountIdr] = useState(450_000);
   const [dueDate, setDueDate] = useState(
     new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10),
   );
@@ -78,13 +86,30 @@ export function InvoicesPage() {
     }
   }
 
-  async function handleDeleteInvoice(invoiceId: string) {
+  async function handleConfirmInvoiceAction() {
+    if (!pendingAction) {
+      return;
+    }
+    setIsProcessingConfirm(true);
     setActionError(null);
     try {
-      await apiRequest(`/invoices/${invoiceId}`, { method: 'DELETE' });
+      if (pendingAction.type === 'DELETE') {
+        await apiRequest(`/invoices/${pendingAction.invoice.id}`, { method: 'DELETE' });
+      } else {
+        await apiRequest(`/invoices/${pendingAction.invoice.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'CANCELLED' }),
+        });
+      }
+      setPendingAction(null);
       await loadInvoicesAndRates();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Gagal menghapus invoice.');
+      setActionError(
+        error instanceof Error ? error.message : 'Gagal memperbarui status invoice.',
+      );
+      setPendingAction(null);
+    } finally {
+      setIsProcessingConfirm(false);
     }
   }
 
@@ -210,13 +235,13 @@ export function InvoicesPage() {
                 htmlFor="invoice-amount-idr"
                 className="block text-xs font-semibold text-[var(--ink)] mb-1.5"
               >
-                Nominal Tagihan (IDR)
+                Nominal Tagihan (IDR, minimal Rp 1.000)
               </label>
               <input
                 id="invoice-amount-idr"
                 type="number"
                 min={1000}
-                step={5000}
+                step={1}
                 required
                 value={amountIdr}
                 onChange={(event) => setAmountIdr(Number(event.target.value))}
@@ -271,7 +296,7 @@ export function InvoicesPage() {
       )}
 
       <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Filter status invoice">
-        {(['ALL', 'PENDING', 'PAID', 'DRAFT', 'EXPIRED'] as const).map((status) => {
+        {(['ALL', 'PENDING', 'PAID', 'DRAFT', 'EXPIRED', 'CANCELLED'] as const).map((status) => {
           const isActive = statusFilter === status;
           return (
             <button
@@ -391,10 +416,20 @@ export function InvoicesPage() {
                             <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
                             <span>Halaman Bayar</span>
                           </Link>
+                          {invoice.status === 'PENDING' && (
+                            <button
+                              type="button"
+                              onClick={() => setPendingAction({ type: 'CANCEL', invoice })}
+                              aria-label={`Batalkan invoice ${invoice.invoiceNumber}`}
+                              className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-[4px] border border-[var(--line)] text-[var(--pending)] hover:bg-[var(--pending-bg)] hover:border-[var(--pending)]"
+                            >
+                              <Ban className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
+                            </button>
+                          )}
                           {invoice.status !== 'PAID' && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteInvoice(invoice.id)}
+                              onClick={() => setPendingAction({ type: 'DELETE', invoice })}
                               aria-label={`Hapus invoice ${invoice.invoiceNumber}`}
                               className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-[4px] border border-[var(--line)] text-[var(--danger)] hover:bg-[var(--danger-bg)] hover:border-[var(--danger)]"
                             >
@@ -411,6 +446,28 @@ export function InvoicesPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={pendingAction !== null}
+        title={
+          pendingAction?.type === 'DELETE'
+            ? `Hapus Invoice ${pendingAction.invoice.invoiceNumber}?`
+            : `Batalkan Invoice ${pendingAction?.invoice.invoiceNumber ?? ''}?`
+        }
+        description={
+          pendingAction?.type === 'DELETE'
+            ? `Invoice untuk ${pendingAction.invoice.clientName} senilai ${formatIdr(pendingAction.invoice.amountIdr)} akan dihapus secara permanen dan tidak dapat dikembalikan.`
+            : `Status invoice untuk ${pendingAction?.invoice.clientName ?? ''} akan diubah menjadi DIBATALKAN dan tidak dapat dibayar lagi oleh klien.`
+        }
+        confirmLabel={
+          pendingAction?.type === 'DELETE' ? 'Ya, Hapus Permanen' : 'Ya, Batalkan Invoice'
+        }
+        cancelLabel="Kembali"
+        tone="danger"
+        isProcessing={isProcessingConfirm}
+        onConfirm={handleConfirmInvoiceAction}
+        onCancel={() => setPendingAction(null)}
+      />
     </div>
   );
 }

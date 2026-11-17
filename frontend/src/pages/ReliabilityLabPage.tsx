@@ -98,12 +98,16 @@ export function ReliabilityLabPage() {
     );
   }
 
+  const isSimulationEnabled = report.isSimulationEnabled ?? true;
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[var(--line)] pb-5">
         <div className="space-y-1">
           <h1 className="font-display text-2xl sm:text-3xl font-semibold text-[var(--ink)]">
-            Laporan Keandalan &amp; Lab Simulasi
+            {isSimulationEnabled
+              ? 'Laporan Keandalan & Lab Simulasi'
+              : 'Laporan Keandalan Sistem'}
           </h1>
           <p className="text-sm text-[var(--ink-muted)]">
             Bandingkan efektivitas kombinasi Webhook, Active Polling, dan Rekonsiliasi terhadap metode Webhook-Only.
@@ -187,7 +191,8 @@ export function ReliabilityLabPage() {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <form onSubmit={handleRunBenchmark} className="paper-card p-6 space-y-4">
+        {isSimulationEnabled && (
+          <form onSubmit={handleRunBenchmark} className="paper-card p-6 space-y-4">
           <div className="border-b border-[var(--line)] pb-3 space-y-1">
             <h2 className="font-display text-lg font-semibold text-[var(--ink)]">
               Simulator Eksperimen Batch
@@ -285,10 +290,11 @@ export function ReliabilityLabPage() {
             <span>{isRunningBenchmark ? 'Menjalankan Simulasi...' : 'Jalankan Eksperimen'}</span>
           </button>
         </form>
+        )}
 
         <section
           aria-labelledby="sim-results-heading"
-          className="lg:col-span-2 paper-card p-6 space-y-4"
+          className={`${isSimulationEnabled ? 'lg:col-span-2' : 'lg:col-span-3'} paper-card p-6 space-y-4`}
         >
           <h2 id="sim-results-heading" className="font-display text-lg font-semibold text-[var(--ink)] border-b border-[var(--line)] pb-3">
             Hasil Pengujian Eksperimen

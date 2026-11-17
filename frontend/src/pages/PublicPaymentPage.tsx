@@ -21,6 +21,7 @@ export function PublicPaymentPage() {
   const { publicToken } = useParams<{ publicToken: string }>();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [transaction, setTransaction] = useState<PaymentTransaction | null>(null);
+  const [isSimulationEnabled, setIsSimulationEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingQris, setIsGeneratingQris] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
@@ -35,9 +36,12 @@ export function PublicPaymentPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await apiRequest<{ invoice: Invoice }>(`/invoices/public/${publicToken}`);
+      const response = await apiRequest<{ invoice: Invoice; isSimulationEnabled?: boolean }>(
+        `/invoices/public/${publicToken}`,
+      );
       setInvoice(response.invoice);
       setTransaction(response.invoice.transactions?.[0] ?? null);
+      setIsSimulationEnabled(response.isSimulationEnabled ?? false);
     } catch (error) {
       setLoadError(
         error instanceof Error ? error.message : 'Halaman pembayaran tidak ditemukan.',
@@ -249,7 +253,7 @@ export function PublicPaymentPage() {
                   </div>
                 </div>
 
-                {transaction && (
+                {transaction && isSimulationEnabled && (
                   <div className="p-4 rounded-[4px] border border-[var(--line)] bg-[var(--surface)] space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-[var(--ink)] inline-flex items-center gap-1.5">

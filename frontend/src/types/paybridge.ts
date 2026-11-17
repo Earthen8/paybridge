@@ -165,6 +165,7 @@ export interface DashboardSummaryResponse {
 }
 
 export interface ReliabilityReportResponse {
+  isSimulationEnabled?: boolean;
   overview: DashboardSummaryResponse['reliabilityOverview'];
   webhookStats: {
     totalEventsReceived: number;

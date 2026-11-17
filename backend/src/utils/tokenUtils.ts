@@ -31,6 +31,10 @@ export function generateRandomHexToken(byteLength = 16): string {
   return crypto.randomBytes(byteLength).toString('hex');
 }
 
+export function generateSixDigitOtp(): string {
+  return crypto.randomInt(100_000, 1_000_000).toString();
+}
+
 export function createMidtransSignature(
   orderId: string,
   statusCode: string,

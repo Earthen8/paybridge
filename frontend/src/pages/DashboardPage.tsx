@@ -253,7 +253,7 @@ export function DashboardPage() {
                 id="crypto-calc-idr"
                 type="number"
                 min={1000}
-                step={50000}
+                step={1}
                 value={calculatorIdr}
                 onChange={(event) => setCalculatorIdr(Math.max(0, Number(event.target.value)))}
                 className="w-full min-h-11 px-3.5 py-2 rounded-[4px] bg-[var(--surface)] border border-[var(--line-strong)] text-base font-mono text-[var(--ink)]"

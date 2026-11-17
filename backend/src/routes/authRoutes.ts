@@ -1,39 +1,65 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { AuthenticatedRequest, requireAuth } from '../middleware/authMiddleware.js';
+import { createRateLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   getUserProfile,
   loginUser,
   registerUser,
   requestPasswordReset,
+  requestRegistrationOtp,
   resetPasswordWithToken,
 } from '../services/authService.js';
 
 export const authRouter = Router();
 
+const otpRequestLimiter = createRateLimiter({
+  windowMs: 60_000,
+  maxRequests: 5,
+  message: 'Terlalu banyak permintaan pengiriman OTP dari alamat IP ini.',
+});
+
+const authAttemptLimiter = createRateLimiter({
+  windowMs: 60_000,
+  maxRequests: 10,
+  message: 'Terlalu banyak percobaan autentikasi dari alamat IP ini.',
+});
+
+const emailOnlySchema = z.object({
+  email: z.string().email('Alamat email yang valid wajib diisi'),
+});
+
 const registerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Valid email address is required'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  businessName: z.string().min(2, 'Business or Freelancer name is required'),
+  name: z.string().min(2, 'Nama minimal 2 karakter'),
+  email: z.string().email('Alamat email yang valid wajib diisi'),
+  password: z.string().min(6, 'Kata sandi minimal 6 karakter'),
+  businessName: z.string().min(2, 'Nama bisnis atau studio wajib diisi'),
   phone: z.string().optional(),
+  otpCode: z.string().length(6, 'Kode OTP harus 6 digit angka'),
 });
 
 const loginSchema = z.object({
-  email: z.string().email('Valid email address is required'),
-  password: z.string().min(1, 'Password is required'),
-});
-
-const forgotPasswordSchema = z.object({
-  email: z.string().email('Valid email address is required'),
+  email: z.string().email('Alamat email yang valid wajib diisi'),
+  password: z.string().min(1, 'Kata sandi wajib diisi'),
 });
 
 const resetPasswordSchema = z.object({
-  resetToken: z.string().min(8, 'Reset token is required'),
-  newPassword: z.string().min(6, 'New password must be at least 6 characters'),
+  email: z.string().email('Alamat email yang valid wajib diisi'),
+  otpCode: z.string().length(6, 'Kode OTP harus 6 digit angka'),
+  newPassword: z.string().min(6, 'Kata sandi baru minimal 6 karakter'),
 });
 
-authRouter.post('/register', async (request, response, next) => {
+authRouter.post('/send-register-otp', otpRequestLimiter, async (request, response, next) => {
+  try {
+    const { email } = emailOnlySchema.parse(request.body);
+    const result = await requestRegistrationOtp(email);
+    response.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post('/register', authAttemptLimiter, async (request, response, next) => {
   try {
     const validatedInput = registerSchema.parse(request.body);
     const result = await registerUser(validatedInput);
@@ -43,7 +69,7 @@ authRouter.post('/register', async (request, response, next) => {
   }
 });
 
-authRouter.post('/login', async (request, response, next) => {
+authRouter.post('/login', authAttemptLimiter, async (request, response, next) => {
   try {
     const validatedInput = loginSchema.parse(request.body);
     const result = await loginUser(validatedInput);
@@ -53,9 +79,9 @@ authRouter.post('/login', async (request, response, next) => {
   }
 });
 
-authRouter.post('/forgot-password', async (request, response, next) => {
+authRouter.post('/forgot-password', otpRequestLimiter, async (request, response, next) => {
   try {
-    const { email } = forgotPasswordSchema.parse(request.body);
+    const { email } = emailOnlySchema.parse(request.body);
     const result = await requestPasswordReset(email);
     response.json(result);
   } catch (error) {
@@ -63,10 +89,10 @@ authRouter.post('/forgot-password', async (request, response, next) => {
   }
 });
 
-authRouter.post('/reset-password', async (request, response, next) => {
+authRouter.post('/reset-password', authAttemptLimiter, async (request, response, next) => {
   try {
-    const { resetToken, newPassword } = resetPasswordSchema.parse(request.body);
-    const result = await resetPasswordWithToken(resetToken, newPassword);
+    const { email, otpCode, newPassword } = resetPasswordSchema.parse(request.body);
+    const result = await resetPasswordWithToken(email, otpCode, newPassword);
     response.json(result);
   } catch (error) {
     next(error);
@@ -81,4 +107,3 @@ authRouter.get('/me', requireAuth, async (request: AuthenticatedRequest, respons
     next(error);
   }
 });
-

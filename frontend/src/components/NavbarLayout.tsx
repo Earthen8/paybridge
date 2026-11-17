@@ -1,14 +1,15 @@
 import {
   Activity,
   FileText,
-  FlaskConical,
   LayoutDashboard,
   LogOut,
+  ShieldCheck,
 } from 'lucide-react';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { UserProfile } from '../types/paybridge.js';
 import { BrandLogo } from './BrandLogo.js';
+import { ConfirmDialog } from './ConfirmDialog.js';
 import { ThemeToggle } from './ThemeToggle.js';
 
 interface NavbarLayoutProps {
@@ -21,11 +22,12 @@ const NAVIGATION_ITEMS = [
   { path: '/', label: 'Dashboard', mobileLabel: 'Dashboard', icon: LayoutDashboard },
   { path: '/invoices', label: 'Invoice & QRIS', mobileLabel: 'Invoice', icon: FileText },
   { path: '/audit-logs', label: 'Riwayat & Audit', mobileLabel: 'Audit', icon: Activity },
-  { path: '/reliability', label: 'Simulasi & Lab', mobileLabel: 'Lab', icon: FlaskConical },
+  { path: '/reliability', label: 'Keandalan Sistem', mobileLabel: 'Keandalan', icon: ShieldCheck },
 ];
 
 export function NavbarLayout({ user, onLogout, children }: NavbarLayoutProps) {
   const location = useLocation();
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] flex flex-col">
@@ -73,7 +75,7 @@ export function NavbarLayout({ user, onLogout, children }: NavbarLayoutProps) {
             <ThemeToggle />
             <button
               type="button"
-              onClick={onLogout}
+              onClick={() => setIsLogoutDialogOpen(true)}
               className="inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-3.5 rounded-[4px] text-xs font-medium text-[var(--ink)] bg-[var(--surface)] hover:bg-[var(--surface-alt)] border border-[var(--line-strong)] transition-colors"
             >
               <LogOut className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
@@ -117,6 +119,20 @@ export function NavbarLayout({ user, onLogout, children }: NavbarLayoutProps) {
           })}
         </div>
       </nav>
+
+      <ConfirmDialog
+        isOpen={isLogoutDialogOpen}
+        title="Keluar dari Sesi PayBridge?"
+        description="Anda perlu masuk kembali menggunakan email dan kata sandi untuk mengakses dashboard dan manajemen invoice."
+        confirmLabel="Ya, Keluar"
+        cancelLabel="Tetap di Sini"
+        tone="stamp"
+        onConfirm={() => {
+          setIsLogoutDialogOpen(false);
+          onLogout();
+        }}
+        onCancel={() => setIsLogoutDialogOpen(false)}
+      />
     </div>
   );
 }

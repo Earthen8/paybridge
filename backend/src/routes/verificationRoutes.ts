@@ -2,7 +2,9 @@ import { SimulationScenario } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../config/database.js';
+import { isSimulationModeActive } from '../config/env.js';
 import { AuthenticatedRequest, requireAuth } from '../middleware/authMiddleware.js';
+import { AppError } from '../utils/appError.js';
 import {
   runResearchBenchmarkSimulation,
   simulateTransactionPaymentScenario,
@@ -71,6 +73,14 @@ verificationRouter.post('/reconcile', requireAuth, async (_request, response, ne
 
 verificationRouter.post('/simulate-payment', async (request, response, next) => {
   try {
+    if (!isSimulationModeActive()) {
+      throw new AppError(
+        'Mode simulasi dinonaktifkan pada lingkungan produksi.',
+        403,
+        'SIMULATION_DISABLED',
+        'Aktifkan ENABLE_SIMULATION_MODE=true pada environment non-produksi untuk menjalankan simulasi.',
+      );
+    }
     const validatedInput = singleSimulationSchema.parse(request.body);
     const result = await simulateTransactionPaymentScenario(validatedInput);
     response.json(result);
@@ -84,6 +94,14 @@ verificationRouter.post(
   requireAuth,
   async (request: AuthenticatedRequest, response, next) => {
     try {
+      if (!isSimulationModeActive()) {
+        throw new AppError(
+          'Mode simulasi dinonaktifkan pada lingkungan produksi.',
+          403,
+          'SIMULATION_DISABLED',
+          'Aktifkan ENABLE_SIMULATION_MODE=true pada environment non-produksi untuk menjalankan simulasi.',
+        );
+      }
       const validatedInput = batchBenchmarkSchema.parse(request.body);
       const result = await runResearchBenchmarkSimulation({
         ...validatedInput,
@@ -99,7 +117,7 @@ verificationRouter.post(
 verificationRouter.get('/reliability-report', requireAuth, async (_request, response, next) => {
   try {
     const report = await getSystemReliabilityReport();
-    response.json(report);
+    response.json({ ...report, isSimulationEnabled: isSimulationModeActive() });
   } catch (error) {
     next(error);
   }

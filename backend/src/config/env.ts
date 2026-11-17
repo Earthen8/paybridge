@@ -10,9 +10,15 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   JWT_SECRET: z.string().min(8, 'JWT_SECRET must be at least 8 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
+  RESEND_API_KEY: z.string().optional().default(''),
+  RESEND_FROM_EMAIL: z.string().default('PayBridge <onboarding@resend.dev>'),
   PAYMENT_GATEWAY_MODE: z
     .enum(['SIMULATOR', 'MIDTRANS_SANDBOX', 'MIDTRANS_PRODUCTION'])
     .default('SIMULATOR'),
+  ENABLE_SIMULATION_MODE: z
+    .string()
+    .transform((value) => value === 'true')
+    .default('true'),
   MIDTRANS_SERVER_KEY: z.string().default('SB-Mid-server-SAMPLE_KEY_FOR_TESTING'),
   MIDTRANS_CLIENT_KEY: z.string().default('SB-Mid-client-SAMPLE_KEY_FOR_TESTING'),
   MIDTRANS_MERCHANT_ID: z.string().default('G123456789'),
@@ -38,3 +44,9 @@ if (!parsedEnv.success) {
 
 export const env = parsedEnv.data;
 
+export function isSimulationModeActive(): boolean {
+  if (env.PAYMENT_GATEWAY_MODE === 'MIDTRANS_PRODUCTION') {
+    return false;
+  }
+  return env.ENABLE_SIMULATION_MODE;
+}

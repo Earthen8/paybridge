@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, KeyRound, LogIn, UserPlus } from 'lucide-react';
+import { AlertCircle, CheckCircle2, KeyRound, LogIn, Mail, UserPlus } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { BrandLogo } from '../components/BrandLogo.js';
 import { ThemeToggle } from '../components/ThemeToggle.js';
@@ -17,11 +17,37 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
   const [businessName, setBusinessName] = useState('');
   const [email, setEmail] = useState('freelancer@paybridge.id');
   const [password, setPassword] = useState('Password123!');
-  const [resetToken, setResetToken] = useState('');
+  const [registerOtpCode, setRegisterOtpCode] = useState('');
+  const [hasSentRegisterOtp, setHasSentRegisterOtp] = useState(false);
+  const [resetOtpCode, setResetOtpCode] = useState('');
+  const [hasSentResetOtp, setHasSentResetOtp] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
+
+  async function handleSendRegisterOtp() {
+    if (!email.trim()) {
+      setErrorMessage('Masukkan alamat email terlebih dahulu untuk menerima kode OTP.');
+      return;
+    }
+    setIsSendingOtp(true);
+    setErrorMessage(null);
+    setStatusNotice(null);
+    try {
+      const response = await apiRequest<{ notice: string }>('/auth/send-register-otp', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      setHasSentRegisterOtp(true);
+      setStatusNotice(response.notice);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Gagal mengirim kode OTP.');
+    } finally {
+      setIsSendingOtp(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -43,7 +69,13 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
       if (mode === 'REGISTER') {
         const result = await apiRequest<{ token: string; user: UserProfile }>('/auth/register', {
           method: 'POST',
-          body: JSON.stringify({ name, businessName, email, password }),
+          body: JSON.stringify({
+            name,
+            businessName,
+            email,
+            password,
+            otpCode: registerOtpCode,
+          }),
         });
         setStoredToken(result.token);
         onAuthenticated(result.user);
@@ -59,27 +91,27 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
   }
 
   async function handlePasswordResetFlow() {
-    if (!resetToken) {
-      const response = await apiRequest<{ resetToken: string; expiresAt: string }>(
-        '/auth/forgot-password',
-        {
-          method: 'POST',
-          body: JSON.stringify({ email }),
-        },
-      );
-      setResetToken(response.resetToken);
-      setStatusNotice(
-        `Token reset berhasil dibuat: ${response.resetToken}. Masukkan sandi baru di bawah untuk menyelesaikan pemulihan.`,
-      );
+    if (!hasSentResetOtp) {
+      const response = await apiRequest<{ notice: string }>('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      setHasSentResetOtp(true);
+      setStatusNotice(response.notice);
       return;
     }
 
     await apiRequest('/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ resetToken, newPassword }),
+      body: JSON.stringify({
+        email,
+        otpCode: resetOtpCode,
+        newPassword,
+      }),
     });
-    setStatusNotice('Sandi berhasil diperbarui. Silakan masuk dengan sandi baru Anda.');
-    setResetToken('');
+    setStatusNotice('Kata sandi berhasil diperbarui. Silakan masuk dengan sandi baru Anda.');
+    setResetOtpCode('');
+    setHasSentResetOtp(false);
     setMode('LOGIN');
   }
 
@@ -105,7 +137,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
                 ? 'Masuk ke Akun Merchant'
                 : mode === 'REGISTER'
                   ? 'Daftar Akun Freelancer'
-                  : 'Pemulihan Kata Sandi'}
+                  : 'Pemulihan Kata Sandi (OTP)'}
             </h1>
             <p className="text-sm text-[var(--ink-muted)]">
               Kelola invoice QRIS dinamis dan verifikasi pembayaran multi-layer.
@@ -128,6 +160,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
                   onClick={() => {
                     setMode(tab);
                     setErrorMessage(null);
+                    setStatusNotice(null);
                   }}
                   className={`min-h-11 px-2 text-xs sm:text-sm font-medium border-b-2 transition-colors ${
                     isSelected
@@ -208,15 +241,28 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
               >
                 Alamat Email
               </label>
-              <input
-                id="auth-email"
-                type="email"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="nama@domain.com"
-                className="w-full min-h-11 px-3.5 py-2 rounded-[4px] bg-[var(--surface)] border border-[var(--line-strong)] text-base text-[var(--ink)]"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="auth-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="nama@domain.com"
+                  className="flex-1 min-h-11 px-3.5 py-2 rounded-[4px] bg-[var(--surface)] border border-[var(--line-strong)] text-base text-[var(--ink)]"
+                />
+                {mode === 'REGISTER' && (
+                  <button
+                    type="button"
+                    disabled={isSendingOtp}
+                    onClick={handleSendRegisterOtp}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3.5 rounded-[4px] border border-[var(--line-strong)] bg-[var(--surface-alt)] hover:bg-[var(--line)] text-xs font-semibold text-[var(--ink)] whitespace-nowrap"
+                  >
+                    <Mail className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+                    <span>{isSendingOtp ? 'Mengirim...' : hasSentRegisterOtp ? 'Kirim Ulang OTP' : 'Kirim OTP'}</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {mode !== 'RESET' && (
@@ -239,22 +285,47 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
               </div>
             )}
 
-            {mode === 'RESET' && resetToken && (
+            {mode === 'REGISTER' && (
+              <div>
+                <label
+                  htmlFor="auth-register-otp"
+                  className="block text-xs font-semibold text-[var(--ink)] mb-1.5"
+                >
+                  Kode OTP Verifikasi Email (6 Digit)
+                </label>
+                <input
+                  id="auth-register-otp"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  required
+                  value={registerOtpCode}
+                  onChange={(event) => setRegisterOtpCode(event.target.value.replace(/\D/g, ''))}
+                  placeholder="Masukkan 6 digit kode OTP dari email"
+                  className="w-full min-h-11 px-3.5 py-2 rounded-[4px] bg-[var(--surface)] border border-[var(--line-strong)] text-base font-mono tracking-widest text-[var(--ink)]"
+                />
+              </div>
+            )}
+
+            {mode === 'RESET' && hasSentResetOtp && (
               <>
                 <div>
                   <label
-                    htmlFor="auth-reset-token"
+                    htmlFor="auth-reset-otp"
                     className="block text-xs font-semibold text-[var(--ink)] mb-1.5"
                   >
-                    Token Reset Sandi
+                    Kode OTP Email (6 Digit)
                   </label>
                   <input
-                    id="auth-reset-token"
+                    id="auth-reset-otp"
                     type="text"
+                    inputMode="numeric"
+                    maxLength={6}
                     required
-                    value={resetToken}
-                    onChange={(event) => setResetToken(event.target.value)}
-                    className="w-full min-h-11 px-3.5 py-2 rounded-[4px] bg-[var(--surface)] border border-[var(--line-strong)] text-base font-mono text-[var(--ink)]"
+                    value={resetOtpCode}
+                    onChange={(event) => setResetOtpCode(event.target.value.replace(/\D/g, ''))}
+                    placeholder="Masukkan 6 digit kode OTP"
+                    className="w-full min-h-11 px-3.5 py-2 rounded-[4px] bg-[var(--surface)] border border-[var(--line-strong)] text-base font-mono tracking-widest text-[var(--ink)]"
                   />
                 </div>
                 <div>
@@ -291,10 +362,10 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
                   : mode === 'LOGIN'
                     ? 'Masuk ke Dashboard'
                     : mode === 'REGISTER'
-                      ? 'Buat Akun Merchant'
-                      : resetToken
-                        ? 'Simpan Kata Sandi Baru'
-                        : 'Minta Token Reset Sandi'}
+                      ? 'Verifikasi OTP & Buat Akun'
+                      : hasSentResetOtp
+                        ? 'Verifikasi OTP & Simpan Sandi Baru'
+                        : 'Kirim Kode OTP ke Email'}
               </span>
             </button>
           </form>

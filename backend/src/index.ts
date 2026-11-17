@@ -1,5 +1,8 @@
 import cors from 'cors';
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { verifyDatabaseConnection } from './config/database.js';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorMiddleware.js';
@@ -11,9 +14,17 @@ import { startBackgroundVerificationWorkers } from './workers/verificationWorker
 
 export const app = express();
 
+app.set('trust proxy', 1);
+
 app.use(
   cors({
-    origin: [env.FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: [
+      env.FRONTEND_URL,
+      'https://paybridge.earthen.my.id',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:4000',
+    ],
     credentials: true,
   }),
 );
@@ -38,6 +49,20 @@ app.use('/api/crypto', cryptoRouter);
 // Direct webhook alias for Midtrans Notification URL configuration (ngrok / Cloudflare Tunnel)
 app.use('/api', verificationRouter);
 
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const frontendDistDir = path.resolve(currentDir, '../../frontend/dist');
+
+if (fs.existsSync(frontendDistDir)) {
+  app.use(express.static(frontendDistDir));
+  app.get('*', (request, response, next) => {
+    if (request.path.startsWith('/api')) {
+      next();
+      return;
+    }
+    response.sendFile(path.join(frontendDistDir, 'index.html'));
+  });
+}
+
 app.use(errorHandler);
 
 async function bootstrapServer(): Promise<void> {
@@ -54,4 +79,3 @@ bootstrapServer().catch((error) => {
   console.error('[Fatal Startup Error]', error);
   process.exit(1);
 });
-

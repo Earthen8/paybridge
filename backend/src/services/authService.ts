@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../config/database.js';
 import { AppError } from '../utils/appError.js';
-import { generateRandomHexToken, signAuthToken } from '../utils/tokenUtils.js';
+import { generateSixDigitOtp, signAuthToken } from '../utils/tokenUtils.js';
+import { sendOtpEmail } from './emailService.js';
 
 export interface RegisterUserInput {
   name: string;
@@ -9,6 +10,7 @@ export interface RegisterUserInput {
   password: string;
   businessName: string;
   phone?: string;
+  otpCode: string;
 }
 
 export interface LoginUserInput {
@@ -16,18 +18,67 @@ export interface LoginUserInput {
   password: string;
 }
 
-export async function registerUser(input: RegisterUserInput) {
-  const normalizedEmail = input.email.toLowerCase().trim();
+interface PendingOtpEntry {
+  otpCode: string;
+  expiresAtMs: number;
+}
+
+const pendingRegistrationOtps = new Map<string, PendingOtpEntry>();
+const OTP_TTL_MS = 15 * 60 * 1000;
+
+export async function requestRegistrationOtp(email: string) {
+  const normalizedEmail = email.toLowerCase().trim();
   const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existingUser) {
     throw new AppError(
-      `Registration failed because email "${normalizedEmail}" is already registered.`,
+      `Pendaftaran gagal karena email "${normalizedEmail}" sudah terdaftar.`,
       409,
       'EMAIL_ALREADY_EXISTS',
-      'Sign in with the existing account or use a different email address.',
+      'Masuk menggunakan akun yang sudah ada atau gunakan alamat email lain.',
     );
   }
 
+  const otpCode = generateSixDigitOtp();
+  const expiresAtMs = Date.now() + OTP_TTL_MS;
+  pendingRegistrationOtps.set(normalizedEmail, { otpCode, expiresAtMs });
+
+  const delivery = await sendOtpEmail({
+    toEmail: normalizedEmail,
+    otpCode,
+    purpose: 'REGISTER_VERIFY',
+  });
+
+  return {
+    email: normalizedEmail,
+    expiresAt: new Date(expiresAtMs).toISOString(),
+    ...delivery,
+  };
+}
+
+export async function registerUser(input: RegisterUserInput) {
+  const normalizedEmail = input.email.toLowerCase().trim();
+  const pendingOtp = pendingRegistrationOtps.get(normalizedEmail);
+
+  if (!pendingOtp || Date.now() > pendingOtp.expiresAtMs || pendingOtp.otpCode !== input.otpCode.trim()) {
+    throw new AppError(
+      'Kode OTP verifikasi pendaftaran tidak valid atau sudah kedaluwarsa.',
+      400,
+      'INVALID_REGISTRATION_OTP',
+      'Minta kode OTP baru ke email Anda lalu masukkan 6 digit kode tersebut.',
+    );
+  }
+
+  const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (existingUser) {
+    throw new AppError(
+      `Pendaftaran gagal karena email "${normalizedEmail}" sudah terdaftar.`,
+      409,
+      'EMAIL_ALREADY_EXISTS',
+      'Masuk menggunakan akun yang sudah ada.',
+    );
+  }
+
+  pendingRegistrationOtps.delete(normalizedEmail);
   const passwordHash = await bcrypt.hash(input.password, 10);
   const createdUser = await prisma.user.create({
     data: {
@@ -48,20 +99,20 @@ export async function loginUser(input: LoginUserInput) {
   const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (!user) {
     throw new AppError(
-      'Login failed because no account matches the provided email and password.',
+      'Email atau kata sandi tidak sesuai.',
       401,
       'INVALID_CREDENTIALS',
-      'Check your email and password or register a new account.',
+      'Periksa kembali email dan kata sandi Anda.',
     );
   }
 
   const isPasswordMatch = await bcrypt.compare(input.password, user.passwordHash);
   if (!isPasswordMatch) {
     throw new AppError(
-      'Login failed because no account matches the provided email and password.',
+      'Email atau kata sandi tidak sesuai.',
       401,
       'INVALID_CREDENTIALS',
-      'Check your email and password or use password reset.',
+      'Periksa kembali email dan kata sandi atau gunakan fitur Reset Sandi.',
     );
   }
 
@@ -74,41 +125,53 @@ export async function requestPasswordReset(email: string) {
   const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (!user) {
     throw new AppError(
-      `Password reset failed because email "${normalizedEmail}" was not found.`,
+      `Akun dengan email "${normalizedEmail}" tidak ditemukan.`,
       404,
       'USER_NOT_FOUND',
-      'Verify the registered email address and try again.',
+      'Pastikan alamat email yang dimasukkan sudah terdaftar di PayBridge.',
     );
   }
 
-  const resetToken = generateRandomHexToken(16);
-  const resetTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+  const otpCode = generateSixDigitOtp();
+  const resetTokenExpiresAt = new Date(Date.now() + OTP_TTL_MS);
   await prisma.user.update({
     where: { id: user.id },
-    data: { resetToken, resetTokenExpiresAt },
+    data: { resetToken: otpCode, resetTokenExpiresAt },
+  });
+
+  const delivery = await sendOtpEmail({
+    toEmail: user.email,
+    otpCode,
+    purpose: 'PASSWORD_RESET',
   });
 
   return {
     email: user.email,
-    resetToken,
     expiresAt: resetTokenExpiresAt.toISOString(),
+    ...delivery,
   };
 }
 
-export async function resetPasswordWithToken(resetToken: string, newPassword: string) {
+export async function resetPasswordWithToken(
+  email: string,
+  otpCode: string,
+  newPassword: string,
+) {
+  const normalizedEmail = email.toLowerCase().trim();
   const user = await prisma.user.findFirst({
     where: {
-      resetToken,
+      email: normalizedEmail,
+      resetToken: otpCode.trim(),
       resetTokenExpiresAt: { gt: new Date() },
     },
   });
 
   if (!user) {
     throw new AppError(
-      'Password reset failed because the reset token is invalid or has expired.',
+      'Kode OTP reset sandi tidak valid atau sudah kedaluwarsa.',
       400,
       'INVALID_RESET_TOKEN',
-      'Request a new password reset token and complete the reset within 30 minutes.',
+      'Minta kode OTP baru dan selesaikan perubahan sandi dalam waktu 15 menit.',
     );
   }
 
@@ -118,17 +181,17 @@ export async function resetPasswordWithToken(resetToken: string, newPassword: st
     data: { passwordHash, resetToken: null, resetTokenExpiresAt: null },
   });
 
-  return { message: 'Password has been updated successfully.' };
+  return { message: 'Kata sandi berhasil diperbarui. Silakan masuk dengan sandi baru.' };
 }
 
 export async function getUserProfile(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
     throw new AppError(
-      'Profile lookup failed because the user account no longer exists.',
+      'Profil pengguna tidak ditemukan.',
       404,
       'USER_NOT_FOUND',
-      'Sign in again with a valid account.',
+      'Silakan masuk kembali.',
     );
   }
   return sanitizeUser(user);
@@ -151,4 +214,3 @@ function sanitizeUser(user: {
     createdAt: user.createdAt,
   };
 }
-

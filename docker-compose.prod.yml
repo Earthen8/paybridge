@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: paybridge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: paybridge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-paybridge_password}
+      POSTGRES_DB: paybridge_db
+    volumes:
+      - paybridge_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paybridge -d paybridge_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paybridge-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4000:4000"
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: "postgresql://paybridge:${POSTGRES_PASSWORD:-paybridge_password}@postgres:5432/paybridge_db?schema=public"
+
+volumes:
+  paybridge_pgdata:
