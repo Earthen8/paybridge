@@ -1,14 +1,7 @@
-import {
-  ArrowUpRight,
-  Bitcoin,
-  CheckCircle2,
-  Clock,
-  Coins,
-  RefreshCw,
-  ShieldCheck,
-} from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { EmptyState, ErrorState, LoadingSkeleton } from '../components/DataStates.js';
 import { InvoiceStatusBadge, MechanismBadge } from '../components/StatusBadge.js';
 import { apiRequest } from '../services/apiClient.js';
 import { DashboardSummaryResponse } from '../types/paybridge.js';
@@ -38,26 +31,16 @@ export function DashboardPage() {
   }, []);
 
   if (isLoading && !summary) {
-    return (
-      <div className="p-12 text-center text-slate-400">
-        Memuat ringkasan pembayaran dan kurs kripto...
-      </div>
-    );
+    return <LoadingSkeleton label="Memuat ringkasan pembayaran dan kurs pasar kripto..." rows={5} />;
   }
 
   if (errorMessage || !summary) {
     return (
-      <div className="p-6 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 space-y-3">
-        <p className="font-semibold">Gagal Memuat Dashboard</p>
-        <p className="text-sm">{errorMessage}</p>
-        <button
-          type="button"
-          onClick={loadDashboard}
-          className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium cursor-pointer"
-        >
-          Coba Lagi
-        </button>
-      </div>
+      <ErrorState
+        title="Gagal memuat ringkasan pembayaran"
+        message={errorMessage ?? 'Data ringkasan tidak tersedia.'}
+        onRetry={loadDashboard}
+      />
     );
   }
 
@@ -66,229 +49,258 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard Ringkasan Pembayaran</h1>
-          <p className="text-sm text-slate-400">
-            Monitoring invoice QRIS dinamis, verifikasi multi-layer, dan konversi harga pasar kripto.
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[var(--line)] pb-5">
+        <div className="space-y-1">
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold text-[var(--ink)]">
+            Ringkasan Pembayaran
+          </h1>
+          <p className="text-sm text-[var(--ink-muted)]">
+            Pantau tagihan tertunda, verifikasi multi-layer, dan ekuivalen aset kripto secara langsung.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={loadDashboard}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 cursor-pointer"
+            disabled={isLoading}
+            className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-[4px] border border-[var(--line-strong)] bg-[var(--surface)] hover:bg-[var(--surface-alt)] text-sm font-medium text-[var(--ink)] transition-colors"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Segarkan Data
+            <RefreshCw
+              className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            <span>Segarkan Data</span>
           </button>
           <Link
             to="/invoices"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white"
+            className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-[4px] bg-[var(--stamp)] hover:bg-[var(--stamp-hover)] text-[var(--stamp-fg)] text-sm font-semibold transition-colors"
           >
-            + Buat Invoice Baru
+            <Plus className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
+            <span>Buat Invoice Baru</span>
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-2">
-            <span>Total Pembayaran Lunas</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+      <section aria-label="Ikhtisar saldo dan keandalan" className="paper-card p-6 sm:p-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div className="lg:col-span-6 space-y-2 lg:border-r lg:border-[var(--line)] lg:pr-8">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)]">
+              Total Menunggu Pembayaran
+            </p>
+            <p className="font-display text-3xl sm:text-4xl font-bold text-[var(--ink)] tabular-nums">
+              {formatIdr(summary.metrics.totalPendingIdr)}
+            </p>
+            <p className="text-sm text-[var(--pending)] font-medium">
+              {summary.metrics.pendingInvoicesCount} invoice aktif menunggu penyelesaian pembayaran
+            </p>
           </div>
-          <p className="text-2xl font-bold text-white">{formatIdr(summary.metrics.totalPaidIdr)}</p>
-          <p className="text-xs text-slate-400 mt-1">
-            ≈ {formatCrypto(summary.metrics.totalPaidBtc, 'BTC')} |{' '}
-            {formatCrypto(summary.metrics.totalPaidEth, 'ETH')}
-          </p>
-        </div>
 
-        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-2">
-            <span>Menunggu Pembayaran (Pending)</span>
-            <Clock className="w-4 h-4 text-amber-400" />
-          </div>
-          <p className="text-2xl font-bold text-white">
-            {formatIdr(summary.metrics.totalPendingIdr)}
-          </p>
-          <p className="text-xs text-slate-400 mt-1">
-            {summary.metrics.pendingInvoicesCount} invoice aktif menunggu penyelesaian
-          </p>
-        </div>
-
-        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-2">
-            <span>Akurasi Verifikasi Hybrid</span>
-            <ShieldCheck className="w-4 h-4 text-indigo-400" />
-          </div>
-          <p className="text-2xl font-bold text-emerald-400">
-            {summary.reliabilityOverview.hybridAccuracyPct}%
-          </p>
-          <p className="text-xs text-slate-400 mt-1">
-            Webhook-Only: {summary.reliabilityOverview.webhookOnlyAccuracyPct}% (
-            +{summary.reliabilityOverview.accuracyImprovementPct}% peningkatan)
-          </p>
-        </div>
-
-        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-2">
-            <span>Distribusi Verifikasi</span>
-            <Coins className="w-4 h-4 text-cyan-400" />
-          </div>
-          <div className="flex items-baseline gap-3 mt-1">
-            <div>
-              <span className="text-xs text-slate-400 block">Webhook</span>
-              <span className="text-lg font-bold text-indigo-300">
-                {summary.reliabilityOverview.webhookVerifiedCount}
-              </span>
+          <div className="lg:col-span-6 divide-y divide-[var(--line)]">
+            <div className="py-2.5 flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-sm text-[var(--ink-muted)]">Total Pembayaran Lunas</span>
+              <div className="text-right">
+                <span className="font-mono text-sm font-semibold text-[var(--paid)]">
+                  {formatIdr(summary.metrics.totalPaidIdr)}
+                </span>
+                <p className="font-mono text-xs text-[var(--ink-muted)]">
+                  {formatCrypto(summary.metrics.totalPaidBtc, 'BTC')} |{' '}
+                  {formatCrypto(summary.metrics.totalPaidEth, 'ETH')}
+                </p>
+              </div>
             </div>
-            <div>
-              <span className="text-xs text-slate-400 block">Polling</span>
-              <span className="text-lg font-bold text-cyan-300">
-                {summary.reliabilityOverview.pollingRecoveredCount}
-              </span>
+
+            <div className="py-2.5 flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-sm text-[var(--ink-muted)]">Akurasi Verifikasi Hybrid</span>
+              <div className="text-right">
+                <span className="font-mono text-sm font-semibold text-[var(--ink)]">
+                  {summary.reliabilityOverview.hybridAccuracyPct}%
+                </span>
+                <span className="ml-2 text-xs text-[var(--ink-muted)]">
+                  (Webhook-Only: {summary.reliabilityOverview.webhookOnlyAccuracyPct}%)
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="text-xs text-slate-400 block">Rekonsiliasi</span>
-              <span className="text-lg font-bold text-purple-300">
+
+            <div className="py-2.5 flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-sm text-[var(--ink-muted)]">Sumber Verifikasi Tercatat</span>
+              <span className="font-mono text-xs sm:text-sm text-[var(--ink)]">
+                Webhook {summary.reliabilityOverview.webhookVerifiedCount} / Polling{' '}
+                {summary.reliabilityOverview.pollingRecoveredCount} / Rekonsiliasi{' '}
                 {summary.reliabilityOverview.reconciliationRecoveredCount}
               </span>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-white">Invoice Terbaru</h2>
-            <Link to="/invoices" className="text-xs text-indigo-400 hover:text-indigo-300">
-              Lihat Semua →
+        <section
+          aria-labelledby="recent-invoices-heading"
+          className="lg:col-span-2 paper-card p-6 space-y-4"
+        >
+          <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] pb-3">
+            <h2 id="recent-invoices-heading" className="font-display text-lg font-semibold text-[var(--ink)]">
+              Daftar Invoice Terbaru
+            </h2>
+            <Link
+              to="/invoices"
+              className="inline-flex items-center min-h-11 px-2 text-sm font-semibold text-[var(--stamp)] hover:underline"
+            >
+              Kelola Semua Invoice
             </Link>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs text-slate-400 border-b border-slate-800">
-                <tr>
-                  <th className="pb-3 font-medium">No. Invoice</th>
-                  <th className="pb-3 font-medium">Klien</th>
-                  <th className="pb-3 font-medium">Nominal (IDR & Kripto)</th>
-                  <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium text-right">Link Publik</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/70">
-                {summary.recentInvoices.map((invoice) => (
-                  <tr key={invoice.id}>
-                    <td className="py-3 font-mono text-xs text-slate-200">
-                      {invoice.invoiceNumber}
-                    </td>
-                    <td className="py-3">
-                      <p className="text-slate-200 font-medium text-xs">{invoice.clientName}</p>
-                      <p className="text-slate-500 text-xs truncate max-w-44">{invoice.title}</p>
-                    </td>
-                    <td className="py-3">
-                      <p className="text-slate-200 font-semibold text-xs">
-                        {formatIdr(invoice.amountIdr)}
-                      </p>
-                      <p className="text-slate-400 text-[11px] font-mono">
-                        {formatCrypto(invoice.btcAmount, 'BTC')}
-                      </p>
-                    </td>
-                    <td className="py-3">
-                      <InvoiceStatusBadge status={invoice.status} />
-                    </td>
-                    <td className="py-3 text-right">
-                      <Link
-                        to={`/pay/${invoice.publicToken}`}
-                        className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
-                      >
-                        Buka QRIS
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
-        <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bitcoin className="w-5 h-5 text-amber-400" />
-              <h2 className="text-base font-semibold text-white">Konversi Real-Time BTC / ETH</h2>
-            </div>
-            <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-              {summary.cryptoRates.source}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
-              <span className="text-xs text-slate-400">Harga Pasar BTC</span>
-              <p className="text-sm font-bold text-amber-400 mt-0.5">
-                {formatIdr(summary.cryptoRates.btcRateIdr)}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
-              <span className="text-xs text-slate-400">Harga Pasar ETH</span>
-              <p className="text-sm font-bold text-indigo-400 mt-0.5">
-                {formatIdr(summary.cryptoRates.ethRateIdr)}
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3 pt-2 border-t border-slate-800">
-            <label className="block text-xs font-medium text-slate-300">
-              Simulasi Konversi Nominal Invoice (IDR)
-            </label>
-            <input
-              type="number"
-              min={1000}
-              step={50000}
-              value={calculatorIdr}
-              onChange={(event) => setCalculatorIdr(Math.max(0, Number(event.target.value)))}
-              className="w-full px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-sm text-white font-mono"
-            />
-            <div className="p-3 rounded-lg bg-indigo-950/30 border border-indigo-500/20 space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Estimasi Bitcoin (BTC):</span>
-                <span className="font-mono font-semibold text-amber-300">
-                  {formatCrypto(convertedBtc, 'BTC')}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Estimasi Ethereum (ETH):</span>
-                <span className="font-mono font-semibold text-indigo-300">
-                  {formatCrypto(convertedEth, 'ETH')}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-800 space-y-2">
-            <p className="text-xs font-medium text-slate-300">Log Verifikasi Terakhir</p>
-            <div className="space-y-2 max-h-44 overflow-y-auto">
-              {summary.recentAuditLogs.slice(0, 4).map((log) => (
-                <div
-                  key={log.id}
-                  className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 text-xs flex items-start justify-between gap-2"
+          {summary.recentInvoices.length === 0 ? (
+            <EmptyState
+              title="Belum ada invoice"
+              description="Buat invoice pertama Anda untuk menghasilkan kode QRIS dinamis dan tautan pembayaran klien."
+              action={
+                <Link
+                  to="/invoices"
+                  className="inline-flex items-center justify-center min-h-11 px-4 rounded-[4px] bg-[var(--stamp)] text-[var(--stamp-fg)] text-sm font-semibold"
                 >
-                  <div>
-                    <p className="text-slate-200">{log.message}</p>
-                    <p className="text-[11px] text-slate-500">{formatDateTime(log.createdAt)}</p>
-                  </div>
-                  <MechanismBadge mechanism={log.mechanism} />
-                </div>
-              ))}
+                  Buat Invoice Pertama
+                </Link>
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-xs font-semibold text-[var(--ink-muted)] border-b border-[var(--line)]">
+                  <tr>
+                    <th className="pb-3 pr-3">No. Invoice</th>
+                    <th className="pb-3 pr-3">Klien</th>
+                    <th className="pb-3 pr-3">Nominal</th>
+                    <th className="pb-3 pr-3">Status</th>
+                    <th className="pb-3 text-right">Tautan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--line)]">
+                  {summary.recentInvoices.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td className="py-3 pr-3 font-mono text-xs text-[var(--ink)] whitespace-nowrap">
+                        {invoice.invoiceNumber}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="text-sm font-medium text-[var(--ink)]">{invoice.clientName}</p>
+                        <p className="text-xs text-[var(--ink-muted)] truncate max-w-44">
+                          {invoice.title}
+                        </p>
+                      </td>
+                      <td className="py-3 pr-3 whitespace-nowrap">
+                        <p className="font-mono text-sm font-semibold text-[var(--ink)]">
+                          {formatIdr(invoice.amountIdr)}
+                        </p>
+                        <p className="font-mono text-xs text-[var(--ink-muted)]">
+                          {formatCrypto(invoice.btcAmount, 'BTC')}
+                        </p>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <InvoiceStatusBadge status={invoice.status} />
+                      </td>
+                      <td className="py-3 text-right">
+                        <Link
+                          to={`/pay/${invoice.publicToken}`}
+                          className="inline-flex items-center justify-center min-h-11 px-3 rounded-[4px] border border-[var(--line-strong)] bg-[var(--surface)] hover:bg-[var(--surface-alt)] text-xs font-semibold text-[var(--ink)]"
+                        >
+                          Buka QRIS
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        </div>
+          )}
+        </section>
+
+        <aside className="space-y-6">
+          <section aria-labelledby="crypto-converter-heading" className="paper-card p-6 space-y-4">
+            <div className="border-b border-[var(--line)] pb-3 space-y-1">
+              <h2 id="crypto-converter-heading" className="font-display text-lg font-semibold text-[var(--ink)]">
+                Konversi Kurs BTC / ETH
+              </h2>
+              <p className="text-xs text-[var(--ink-muted)]">
+                Sumber kurs: {summary.cryptoRates.source}
+              </p>
+            </div>
+
+            <div className="divide-y divide-[var(--line)] text-sm">
+              <div className="py-2 flex justify-between items-baseline">
+                <span className="text-[var(--ink-muted)]">1 Bitcoin (BTC)</span>
+                <span className="font-mono font-semibold text-[var(--ink)]">
+                  {formatIdr(summary.cryptoRates.btcRateIdr)}
+                </span>
+              </div>
+              <div className="py-2 flex justify-between items-baseline">
+                <span className="text-[var(--ink-muted)]">1 Ethereum (ETH)</span>
+                <span className="font-mono font-semibold text-[var(--ink)]">
+                  {formatIdr(summary.cryptoRates.ethRateIdr)}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-[var(--line)]">
+              <label
+                htmlFor="crypto-calc-idr"
+                className="block text-xs font-semibold text-[var(--ink)]"
+              >
+                Simulasi Konversi Nominal (IDR)
+              </label>
+              <input
+                id="crypto-calc-idr"
+                type="number"
+                min={1000}
+                step={50000}
+                value={calculatorIdr}
+                onChange={(event) => setCalculatorIdr(Math.max(0, Number(event.target.value)))}
+                className="w-full min-h-11 px-3.5 py-2 rounded-[4px] bg-[var(--surface)] border border-[var(--line-strong)] text-base font-mono text-[var(--ink)]"
+              />
+              <div className="p-3 rounded-[4px] bg-[var(--surface-alt)] border border-[var(--line)] space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-[var(--ink-muted)]">Ekuivalen BTC</span>
+                  <span className="font-mono font-semibold text-[var(--ink)]">
+                    {formatCrypto(convertedBtc, 'BTC')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--ink-muted)]">Ekuivalen ETH</span>
+                  <span className="font-mono font-semibold text-[var(--ink)]">
+                    {formatCrypto(convertedEth, 'ETH')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section aria-labelledby="recent-logs-heading" className="paper-card p-6 space-y-3">
+            <h2 id="recent-logs-heading" className="font-display text-lg font-semibold text-[var(--ink)] border-b border-[var(--line)] pb-3">
+              Log Verifikasi Terakhir
+            </h2>
+            {summary.recentAuditLogs.length === 0 ? (
+              <p className="text-sm text-[var(--ink-muted)] py-2">
+                Belum ada catatan verifikasi transaksi.
+              </p>
+            ) : (
+              <ul className="divide-y divide-[var(--line)]">
+                {summary.recentAuditLogs.slice(0, 4).map((log) => (
+                  <li key={log.id} className="py-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <MechanismBadge mechanism={log.mechanism} />
+                      <span className="text-xs text-[var(--ink-muted)]">
+                        {formatDateTime(log.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--ink)]">{log.message}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </aside>
       </div>
     </div>
   );
 }
-

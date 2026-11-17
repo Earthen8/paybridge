@@ -1,9 +1,8 @@
 export function formatIdr(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
+  const formatted = new Intl.NumberFormat('id-ID', {
     maximumFractionDigits: 0,
   }).format(amount);
+  return `Rp ${formatted}`;
 }
 
 export function formatCrypto(amount: number | string, symbol: 'BTC' | 'ETH'): string {

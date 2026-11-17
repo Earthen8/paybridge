@@ -1,2 +1,192 @@
 @import "tailwindcss";
 
+:root {
+  --paper: #f5f1e8;
+  --surface: #fffdf8;
+  --surface-alt: #efeae0;
+  --ink: #14213d;
+  --ink-muted: #5c5a52;
+  --line: #d8d2c4;
+  --line-strong: #8a8576;
+  --stamp: #c23b1e;
+  --stamp-hover: #a63016;
+  --stamp-fg: #fffdf8;
+  --paid: #2f6b4f;
+  --paid-bg: #eef6f1;
+  --pending: #8a5a00;
+  --pending-bg: #fbf5e6;
+  --danger: #b42318;
+  --danger-bg: #faf0ee;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+[data-theme="dark"] {
+  --paper: #161614;
+  --surface: #1f1f1b;
+  --surface-alt: #282722;
+  --ink: #f2ede2;
+  --ink-muted: #b8b2a6;
+  --line: #35342e;
+  --line-strong: #7e796d;
+  --stamp: #e35d3f;
+  --stamp-hover: #ed7357;
+  --stamp-fg: #161614;
+  --paid: #66b88d;
+  --paid-bg: #182a20;
+  --pending: #e0a538;
+  --pending-bg: #2a2315;
+  --danger: #f87171;
+  --danger-bg: #2e1c1a;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--paper);
+    color: var(--ink);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--paper);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono,
+  code,
+  pre {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  a[href],
+  button:not(:disabled),
+  summary,
+  select:not(:disabled),
+  label[for],
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  [role="button"],
+  [role="tab"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 12px 16px;
+  background-color: var(--ink);
+  color: var(--surface);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 4px;
+}
+
+.skip-link:focus {
+  left: 16px;
+  top: 16px;
+}
+
+.paper-card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.serrated-ticket {
+  position: relative;
+  background-color: var(--surface);
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+.serrated-ticket::before,
+.serrated-ticket::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background-size: 16px 10px;
+  background-repeat: repeat-x;
+  pointer-events: none;
+}
+
+.serrated-ticket::before {
+  top: -10px;
+  background-image: linear-gradient(135deg, transparent 50%, var(--surface) 50%),
+    linear-gradient(225deg, transparent 50%, var(--surface) 50%);
+  filter: drop-shadow(0 -1px 0 var(--line));
+}
+
+.serrated-ticket::after {
+  bottom: -10px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--surface) 50%),
+    linear-gradient(315deg, transparent 50%, var(--surface) 50%);
+  filter: drop-shadow(0 1px 0 var(--line));
+}
+
+.lunas-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border: 2px solid var(--paid);
+  outline: 1px solid var(--paid);
+  outline-offset: 3px;
+  border-radius: 4px;
+  color: var(--paid);
+  background-color: var(--paid-bg);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  transform: rotate(-3deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

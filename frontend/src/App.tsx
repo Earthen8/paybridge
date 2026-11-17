@@ -15,6 +15,11 @@ export function App() {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   useEffect(() => {
+    const savedTheme = localStorage.getItem('paybridge_theme') === 'dark' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
+
+  useEffect(() => {
     const token = getStoredToken();
     if (!token) {
       setIsCheckingSession(false);
@@ -34,7 +39,11 @@ export function App() {
 
   if (isCheckingSession) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-sm">
+      <div
+        role="status"
+        aria-live="polite"
+        className="min-h-screen bg-[var(--paper)] flex items-center justify-center text-[var(--ink-muted)] text-sm p-6"
+      >
         Memeriksa sesi autentikasi PayBridge...
       </div>
     );
@@ -42,6 +51,9 @@ export function App() {
 
   return (
     <BrowserRouter>
+      <a href="#main-content" className="skip-link">
+        Lewati ke konten
+      </a>
       <Routes>
         <Route path="/pay/:publicToken" element={<PublicPaymentPage />} />
 
@@ -67,4 +79,3 @@ export function App() {
     </BrowserRouter>
   );
 }
-
