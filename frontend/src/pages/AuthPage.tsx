@@ -1,5 +1,6 @@
-import { AlertCircle, CheckCircle2, KeyRound, LogIn, Receipt, UserPlus } from 'lucide-react';
+import { AlertCircle, CheckCircle2, KeyRound, LogIn, UserPlus } from 'lucide-react';
 import { FormEvent, useState } from 'react';
+import { BrandLogo } from '../components/BrandLogo.js';
 import { ThemeToggle } from '../components/ThemeToggle.js';
 import { apiRequest, setStoredToken } from '../services/apiClient.js';
 import { UserProfile } from '../types/paybridge.js';
@@ -86,9 +87,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] flex flex-col">
       <header className="max-w-md w-full mx-auto px-4 pt-6 flex items-center justify-between">
         <div className="inline-flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-[4px] bg-[var(--ink)] text-[var(--surface)] flex items-center justify-center">
-            <Receipt className="w-5 h-5" strokeWidth={1.75} aria-hidden="true" />
-          </span>
+          <BrandLogo size={28} />
           <span className="font-display font-bold text-xl text-[var(--ink)]">PayBridge</span>
         </div>
         <ThemeToggle />

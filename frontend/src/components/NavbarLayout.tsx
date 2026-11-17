@@ -4,11 +4,11 @@ import {
   FlaskConical,
   LayoutDashboard,
   LogOut,
-  Receipt,
 } from 'lucide-react';
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { UserProfile } from '../types/paybridge.js';
+import { BrandLogo } from './BrandLogo.js';
 import { ThemeToggle } from './ThemeToggle.js';
 
 interface NavbarLayoutProps {
@@ -36,9 +36,7 @@ export function NavbarLayout({ user, onLogout, children }: NavbarLayoutProps) {
               to="/"
               className="inline-flex items-center gap-2.5 min-h-11 pr-2 rounded-[4px]"
             >
-              <span className="w-9 h-9 rounded-[4px] bg-[var(--ink)] text-[var(--surface)] flex items-center justify-center shrink-0">
-                <Receipt className="w-5 h-5" strokeWidth={1.75} aria-hidden="true" />
-              </span>
+              <BrandLogo size={28} />
               <span className="font-display font-bold text-xl tracking-tight text-[var(--ink)]">
                 PayBridge
               </span>

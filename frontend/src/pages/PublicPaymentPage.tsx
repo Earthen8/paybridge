@@ -3,13 +3,13 @@ import {
   CheckCircle2,
   FlaskConical,
   QrCode,
-  Receipt,
   RefreshCw,
   ShieldAlert,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { BrandLogo } from '../components/BrandLogo.js';
 import { ErrorState, LoadingSkeleton } from '../components/DataStates.js';
 import { InvoiceStatusBadge, MechanismBadge } from '../components/StatusBadge.js';
 import { ThemeToggle } from '../components/ThemeToggle.js';
@@ -129,10 +129,8 @@ export function PublicPaymentPage() {
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] flex flex-col">
       <header className="border-b border-[var(--line)] bg-[var(--surface)]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-[4px] bg-[var(--ink)] text-[var(--surface)] flex items-center justify-center">
-              <Receipt className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
-            </span>
+          <div className="flex items-center gap-2.5">
+            <BrandLogo size={26} />
             <span className="font-display font-bold text-lg text-[var(--ink)]">PayBridge</span>
           </div>
 
