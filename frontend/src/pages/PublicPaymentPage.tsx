@@ -2,6 +2,7 @@ import {
   AlertCircle,
   CheckCircle2,
   FlaskConical,
+  Printer,
   QrCode,
   RefreshCw,
   ShieldAlert,
@@ -345,6 +346,15 @@ export function PublicPaymentPage() {
                           </dd>
                         </div>
                       </dl>
+
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="no-print w-full min-h-11 px-4 rounded-[4px] border border-[var(--line-strong)] bg-[var(--surface)] hover:bg-[var(--surface-alt)] text-sm font-semibold text-[var(--ink)] inline-flex items-center justify-center gap-2"
+                      >
+                        <Printer className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
+                        <span>Cetak / Simpan Kuitansi</span>
+                      </button>
                     </div>
                   ) : transaction ? (
                     <>
@@ -368,17 +378,25 @@ export function PublicPaymentPage() {
 
                       <dl className="w-full space-y-2 text-xs border-t border-[var(--line)] pt-4">
                         <div className="flex justify-between">
-                          <dt className="text-[var(--ink-muted)]">Status Lokal</dt>
+                          <dt className="text-[var(--ink-muted)]">Status Pembayaran</dt>
                           <dd className="font-mono font-semibold text-[var(--pending)]">
-                            {transaction.status}
+                            {transaction.status === 'PENDING' ? 'MENUNGGU PEMBAYARAN' : transaction.status}
                           </dd>
                         </div>
                         <div className="flex justify-between">
-                          <dt className="text-[var(--ink-muted)]">Status Gateway</dt>
-                          <dd className="font-mono font-semibold text-[var(--ink)]">
-                            {transaction.simulatedGatewayStatus}
+                          <dt className="text-[var(--ink-muted)]">Berlaku hingga</dt>
+                          <dd className="font-mono text-[var(--ink)]">
+                            {formatDateTime(transaction.expiresAt)}
                           </dd>
                         </div>
+                        {isSimulationEnabled && (
+                          <div className="flex justify-between">
+                            <dt className="text-[var(--ink-muted)]">Status Gateway (Simulasi)</dt>
+                            <dd className="font-mono font-semibold text-[var(--ink)]">
+                              {transaction.simulatedGatewayStatus}
+                            </dd>
+                          </div>
+                        )}
                       </dl>
 
                       {transaction.simulatedGatewayStatus === 'SETTLEMENT' &&
@@ -436,6 +454,18 @@ export function PublicPaymentPage() {
                 </div>
               </section>
             </div>
+
+            <footer className="no-print pt-4 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-4 text-xs text-[var(--ink-muted)]">
+              <span>Diproses melalui PayBridge QRIS Dinamis</span>
+              <div className="flex items-center gap-4">
+                <Link to="/terms" className="hover:text-[var(--ink)] underline">
+                  Syarat &amp; Ketentuan
+                </Link>
+                <Link to="/privacy" className="hover:text-[var(--ink)] underline">
+                  Kebijakan Privasi
+                </Link>
+              </div>
+            </footer>
           </>
         )}
       </main>

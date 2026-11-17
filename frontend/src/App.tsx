@@ -5,6 +5,7 @@ import { AuditLogsPage } from './pages/AuditLogsPage.js';
 import { AuthPage } from './pages/AuthPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { InvoicesPage } from './pages/InvoicesPage.js';
+import { LegalPage } from './pages/LegalPage.js';
 import { PublicPaymentPage } from './pages/PublicPaymentPage.js';
 import { ReliabilityLabPage } from './pages/ReliabilityLabPage.js';
 import { apiRequest, clearStoredToken, getStoredToken } from './services/apiClient.js';
@@ -56,6 +57,8 @@ export function App() {
       </a>
       <Routes>
         <Route path="/pay/:publicToken" element={<PublicPaymentPage />} />
+        <Route path="/terms" element={<LegalPage section="terms" />} />
+        <Route path="/privacy" element={<LegalPage section="privacy" />} />
 
         {!user ? (
           <Route path="*" element={<AuthPage onAuthenticated={setUser} />} />

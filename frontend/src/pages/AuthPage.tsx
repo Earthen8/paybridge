@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, KeyRound, LogIn, Mail, UserPlus } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { BrandLogo } from '../components/BrandLogo.js';
 import { ThemeToggle } from '../components/ThemeToggle.js';
 import { apiRequest, setStoredToken } from '../services/apiClient.js';
@@ -13,11 +14,24 @@ interface AuthPageProps {
 
 export function AuthPage({ onAuthenticated }: AuthPageProps) {
   const [mode, setMode] = useState<AuthMode>('LOGIN');
+  const [isDemoEnvironment, setIsDemoEnvironment] = useState(false);
   const [name, setName] = useState('');
   const [businessName, setBusinessName] = useState('');
-  const [email, setEmail] = useState('freelancer@paybridge.id');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [registerOtpCode, setRegisterOtpCode] = useState('');
+
+  useEffect(() => {
+    apiRequest<{ isSimulationEnabled?: boolean }>('/health')
+      .then((res) => {
+        if (res.isSimulationEnabled) {
+          setIsDemoEnvironment(true);
+        }
+      })
+      .catch(() => {
+        // Keep production-safe empty inputs on network failure
+      });
+  }, []);
   const [hasSentRegisterOtp, setHasSentRegisterOtp] = useState(false);
   const [resetOtpCode, setResetOtpCode] = useState('');
   const [hasSentResetOtp, setHasSentResetOtp] = useState(false);
@@ -348,7 +362,23 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
               </>
             )}
 
-            <button
+          {isDemoEnvironment && mode === 'LOGIN' && (
+            <div className="p-3 rounded-[4px] border border-[var(--line)] bg-[var(--surface-alt)] flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="text-[var(--ink-muted)]">Mode Demo Riset aktif</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('freelancer@paybridge.id');
+                  setPassword('Password123!');
+                }}
+                className="min-h-11 px-3 rounded-[4px] border border-[var(--line-strong)] bg-[var(--surface)] text-xs font-semibold text-[var(--ink)]"
+              >
+                Isi Akun Demo
+              </button>
+            </div>
+          )}
+
+          <button
               type="submit"
               disabled={isLoading}
               className="w-full min-h-11 px-4 rounded-[4px] bg-[var(--stamp)] hover:bg-[var(--stamp-hover)] disabled:opacity-60 text-[var(--stamp-fg)] font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
@@ -369,6 +399,15 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
               </span>
             </button>
           </form>
+
+          <footer className="pt-4 border-t border-[var(--line)] flex flex-wrap items-center justify-center gap-4 text-xs text-[var(--ink-muted)]">
+            <Link to="/terms" className="hover:text-[var(--ink)] underline">
+              Syarat &amp; Ketentuan
+            </Link>
+            <Link to="/privacy" className="hover:text-[var(--ink)] underline">
+              Kebijakan Privasi
+            </Link>
+          </footer>
         </div>
       </main>
     </div>

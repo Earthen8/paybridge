@@ -47,6 +47,16 @@ export async function processMidtransWebhook(payload: MidtransWebhookPayload) {
     return recordRejectedWebhook(transaction.id, transaction.invoiceId, payload, startedAtMs);
   }
 
+  const webhookAmountIdr = Math.round(Number(payload.gross_amount));
+  if (Number.isNaN(webhookAmountIdr) || webhookAmountIdr !== transaction.amountIdr) {
+    throw new AppError(
+      `Webhook amount mismatch for ${payload.order_id}: expected ${transaction.amountIdr}, received ${payload.gross_amount}.`,
+      400,
+      'WEBHOOK_AMOUNT_MISMATCH',
+      'Verify that gross_amount in the gateway notification matches the invoice amount.',
+    );
+  }
+
   const existingProcessedWebhook = await prisma.webhookEvent.findFirst({
     where: {
       orderId: payload.order_id,

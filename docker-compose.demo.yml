@@ -1,0 +1,37 @@
+services:
+  postgres-demo:
+    image: postgres:16-alpine
+    container_name: paybridge-demo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: paybridge_demo
+      POSTGRES_PASSWORD: ${POSTGRES_DEMO_PASSWORD:-paybridge_demo_password}
+      POSTGRES_DB: paybridge_demo_db
+    volumes:
+      - paybridge_demo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paybridge_demo -d paybridge_demo_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paybridge-demo-app
+    restart: unless-stopped
+    depends_on:
+      postgres-demo:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4001:4000"
+    env_file:
+      - ./backend/.env.demo
+    environment:
+      DATABASE_URL: "postgresql://paybridge_demo:${POSTGRES_DEMO_PASSWORD:-paybridge_demo_password}@postgres-demo:5432/paybridge_demo_db?schema=public"
+      PAYMENT_GATEWAY_MODE: "SIMULATOR"
+      ENABLE_SIMULATION_MODE: "true"
+
+volumes:
+  paybridge_demo_pgdata:

@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { verifyDatabaseConnection } from './config/database.js';
-import { env } from './config/env.js';
+import { env, isSimulationModeActive } from './config/env.js';
 import { errorHandler } from './middleware/errorMiddleware.js';
 import { authRouter } from './routes/authRoutes.js';
 import { cryptoRouter } from './routes/cryptoRoutes.js';
@@ -36,6 +36,7 @@ app.get('/api/health', async (_request, response) => {
     status: isDatabaseConnected ? 'healthy' : 'degraded',
     service: 'paybridge-backend',
     gatewayMode: env.PAYMENT_GATEWAY_MODE,
+    isSimulationEnabled: isSimulationModeActive(),
     isDatabaseConnected,
     timestamp: new Date().toISOString(),
   });
@@ -66,6 +67,19 @@ if (fs.existsSync(frontendDistDir)) {
 app.use(errorHandler);
 
 async function bootstrapServer(): Promise<void> {
+  if (env.PAYMENT_GATEWAY_MODE === 'MIDTRANS_PRODUCTION') {
+    if (env.MIDTRANS_SERVER_KEY.includes('SAMPLE_KEY')) {
+      throw new Error(
+        'Cannot start in MIDTRANS_PRODUCTION mode with a sample MIDTRANS_SERVER_KEY.',
+      );
+    }
+    if (env.JWT_SECRET.includes('change-in-production')) {
+      throw new Error(
+        'Cannot start in MIDTRANS_PRODUCTION mode with the default development JWT_SECRET.',
+      );
+    }
+  }
+
   await verifyDatabaseConnection();
   startBackgroundVerificationWorkers();
 
